@@ -1,4 +1,4 @@
-# News Category Classification Repor
+# News category classification report
 train.py script
 This simple model reads news headlines and short descriptions, preprocesses them, trains a SVM classifier to predict categories based on the text.
 

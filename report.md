@@ -5,7 +5,7 @@ This simple model reads news headlines and short descriptions, preprocesses them
 ## eval.py script
 It loads a trained model, evaluates its performance on a separate dataset, and provides metrics such as accuracy, confusion matrix, and classification report to assess the model's effectiveness.
 
-## new_cls.py script
+## classify.py script
 This script takes test data, classifies it using a pre-trained model, prints the distribution of predicted categories, and saves the classified data to a jsonl file.
 
 ## .ipynb files
@@ -21,4 +21,4 @@ Two different approaches were implemented in Google Colab to observe the data:
 2. **Simple Model with Different Classifiers**: In the other approach, a simpler model architecture was used, and multiple classifiers were applied to classify news categories.
 
 ## Possible improvements
-Applying transfer learning, such as leveraging pre-trained language models like BERT and GPT, can significantly enhance performance. Fine-tuning these models on the dataset can lead to significant performance gains.t
+Applying transfer learning, such as leveraging pre-trained language models like BERT and GPT, can significantly enhance performance. Fine-tuning these models on the dataset can lead to significant performance gains.

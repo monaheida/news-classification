@@ -21,6 +21,7 @@ Two different approaches were implemented in Google Colab to observe the data:
 2. **Simple Model with Different Classifiers**: In the other approach, a simpler model architecture was used, and multiple classifiers were applied to classify news categories.
 
 ## Possible improvements
+
 Applying transfer learning, such as leveraging pre-trained language models like distilBERT (already implemented in **news** directory) can significantly enhance performance.
 Because it is a small dataset this model performs better. For a larger dataset more advanced pre-trained model **RoBERTa** can be advantagous.
 

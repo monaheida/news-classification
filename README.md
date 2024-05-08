@@ -8,7 +8,7 @@ pip3 install -r requirements.txt
 
 
 
-### Run the script in **news directory: python classify.py news data/test.jsonl
+### Run the script in **news** directory: python classify.py news data/test.jsonl
 
 
 

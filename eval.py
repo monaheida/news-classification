@@ -1,49 +1,55 @@
 import json
 import pandas as pd
+import numpy as np
+import seaborn as sns
 import joblib
+import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
-def read_jsonl(file_path):
-    data = []
-    with open(file_path, 'r', encoding='utf-8') as file:
-        for line in file:
-            data.append(json.loads(line))
-    return data
+def load_data(file_path):
+	data = []
+	with open(file_path, 'r', encoding='utf-8') as file:
+		for line in file:
+			data.append(json.loads(line))
+	return data
 
 def preprocess_data(data):
-    df = pd.DataFrame(data)
-    df.dropna(subset=['headline', 'short_description', 'category'], inplace=True)
-    return df[['headline', 'short_description', 'category']]
+    X = [d['headline'] + ' ' + d['short_description'] for d in data]
+    y = [d['category'] for d in data]
+    return X, y
 
-def load_model(model_path):
-    clf, vectorizer = joblib.load(model_path)
-    return clf, vectorizer
+def evaluate_model(model, X_eval, y_eval):
+	y_pred = model.predict(X_eval)
+	accuracy = accuracy_score(y_eval, y_pred)
+	print("Accuracy:", accuracy)
 
-def evaluate_model(model, vectorizer, data):
-	X = vectorizer.transform(data['headline'] + ' ' + data['short_description'])
-	y_true = data['category']
-	y_pred = model.predict(X)
+	print("Cls Report:")
+	print(classification_report(y_eval, y_pred))
+    
+	cm = confusion_matrix(y_eval, y_pred)
 
-	accuracy = accuracy_score(y_true, y_pred)
-	confusion = confusion_matrix(y_true, y_pred)
-	report = classification_report(y_true, y_pred)
+	plt.figure(figsize=(14,12))
+	sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+			xticklabels=sorted(set(y_eval)),
+			yticklabels=sorted(set(y_eval)))
+	plt.xlabel('Predicted labels')
+	plt.ylabel('True labels')
+	plt.title('Confusion Matrix')
+	plt.show()
 
-	return accuracy, confusion, report
 
 def main():
-    print("Loading model...")
-    clf, vectorizer = load_model('model.pkl')
+	eval_data = load_data('data/dev.jsonl')
 
-    eval_data = read_jsonl('data/dev.jsonl')
-    eval_df = preprocess_data(eval_data)
+	X_eval, y_eval = preprocess_data(eval_data)
 
-    print("Evaluating model...")
-    accuracy, confusion, report = evaluate_model(clf, vectorizer, eval_df)
-    print(f'Accuracy: {accuracy:.4f}')
-    print("Confusion Matrix:")
-    print(confusion)
-    print("Classification Report:")
-    print(report)
+	model = joblib.load('model.pkl')
+
+	print("Evaluating model...")
+	evaluate_model(model, X_eval, y_eval)
+
+	print("Evaluation completed.")
+
 
 if __name__ == "__main__":
     main()

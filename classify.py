@@ -1,43 +1,47 @@
 import json
-import pandas as pd
 import joblib
 
-def read_jsonl(file_path):
-    data = []
-    with open(file_path, 'r', encoding='utf-8') as file:
-        for line in file:
-            data.append(json.loads(line))
-    return data
+def load_data(file_path):
+	data = []
+	with open(file_path, 'r', encoding='utf-8') as file:
+		for line in file:
+			data.append(json.loads(line))
+	return data
 
 def preprocess_data(data):
-    df = pd.DataFrame(data)
-    df.dropna(subset=['headline', 'short_description'], inplace=True)
-    return df[['headline', 'short_description']]
+    X = [d['headline'] + ' ' + d['short_description'] for d in data]
+    return X
 
-def load_model(model_path):
-    clf, vectorizer = joblib.load(model_path)
-    return clf, vectorizer
-
-def classify_data(model, vectorizer, data):
-    X = vectorizer.transform(data['headline'] + ' ' + data['short_description'])
-    data['category'] = model.predict(X)
-    return data
+def classify_data(model, X):
+    y_pred = model.predict(X)
+    return y_pred
 
 def main():
-    print("Loading model...")
-    clf, vectorizer = load_model('model.pkl')
+	data_to_classify = load_data('data/test.jsonl')
 
-    test_data = read_jsonl('data/test.jsonl')
-    test_df = preprocess_data(test_data)
+	X_to_classify = preprocess_data(data_to_classify)
 
-    print("Classifying data...")
-    classified_data = classify_data(clf, vectorizer, test_df)
+	model = joblib.load('model.pkl')
 
-    print("Predicted Categories:")
-    print(classified_data['category'].value_counts())
+	print("Classifying data...")
+	y_pred = classify_data(model, X_to_classify)
+	
+	"""
+	# uncomment to see the predicted category in terminal
+	for i, item in enumerate(data_to_classify):
+		item['category'] = y_pred[i]
+		print(f"Item {i+1}: Predicted Category - {y_pred[i]}")
+	"""
 
-    classified_data.to_json('classified_data.jsonl', orient='records', lines=True)
-    print("Classification complete. Classified data saved to 'classified_data.jsonl'.")
+	for i in range(len(data_to_classify)):
+		data_to_classify[i]['category'] = y_pred[i]
+
+	with open('classified_data.jsonl', 'w', encoding='utf-8') as f:
+		for item in data_to_classify:
+			f.write(json.dumps(item) + '\n')
+
+	print("Classification completed. Classified data saved to 'classified_data.jsonl'.")
+
 
 if __name__ == "__main__":
     main()

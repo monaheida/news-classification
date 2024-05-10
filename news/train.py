@@ -24,17 +24,19 @@ print(f"Accumulation Steps: {ACCUM_STEPS}")
 print(f"Random Seed: {SEED}")
 
 class CustomDataset(Dataset):
-	def __init__(self, data, tokenizer, max_length):
+	def __init__(self, data, tokenizer, max_length, label_map):
 		self.data = data
 		self.tokenizer = tokenizer
 		self.max_length = max_length
-    
+		self.label_map = label_map
+
+
 	def __len__(self):
 		return len(self.data)
     
 	def __getitem__(self, idx):
-		text = self.data[idx]['headline'] + ' ' + self.data[idx]['short_description']
-		label = self.data[idx]['category']
+		text = str(self.data[idx]['headline']) + ' ' + str(self.data[idx]['short_description'])
+		label = self.label_map[self.data[idx]['category']]
 		encoding = self.tokenizer.encode_plus(
 			text,
 			add_special_tokens=True,
@@ -51,6 +53,7 @@ class CustomDataset(Dataset):
 			'labels': torch.tensor(label, dtype=torch.long)
 		}
 
+
 def train(model, train_loader, optimizer, device):
 	model.train()
 	total_loss = 0
@@ -66,38 +69,50 @@ def train(model, train_loader, optimizer, device):
 		optimizer.step()
 		return total_loss / len(train_loader)
 
+def load_jsonl(file_path):
+	data = []
+	with open(file_path, 'r', encoding='utf-8') as file:
+		for line in file:
+			data.append(json.loads(line))
+	return data
+
+def create_label_map(data):
+    unique_labels = sorted(set(sample['category'] for sample in data))
+    label_map = {label: idx for idx, label in enumerate(unique_labels)}
+    return label_map
+
+def count_unique_classes(data):
+    unique_classes = set(sample['category'] for sample in data)
+    return len(unique_classes)
 
 def main(train_file, model_output):
-	with open(train_file, 'r', encoding='utf-8') as file:
-		train_data = [json.loads(line) for line in file]
-    
-    
+	train_data = load_jsonl(train_file)
+	num_classes_dataset = count_unique_classes(train_data)
+
 	tokenizer = DistilBertTokenizer.from_pretrained(MODEL_NAME)
-    
-    
-	model = DistilBertForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=20)
-    
-    
-	train_dataset = CustomDataset(train_data, tokenizer, max_length=MAX_SEQ_LENGTH)
+	model = DistilBertForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=num_classes_dataset)
+
+	print("Number of classes in dataset:", num_classes_dataset)
+	print("Number of labels expected by model:", model.config.num_labels)
+
+	label_map = create_label_map(train_data)
+	train_dataset = CustomDataset(train_data, tokenizer, max_length=MAX_SEQ_LENGTH, label_map=label_map)  # Pass label_map
 	train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    
+
 	device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 	model.to(device)
-    
+
 	optimizer = AdamW(model.parameters(), lr=LEARN_RATE)
-    
+
 	for epoch in range(NUM_EPOCHS):
 		loss = train(model, train_loader, optimizer, device)
 		print(f'Epoch {epoch + 1}, Loss: {loss}')
-    
-    
+	
 	model.save_pretrained(model_output)
 
+
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description="Train a text classification model using DistilBERT")
-    parser.add_argument("train_file", help="Path to the training data file")
-    parser.add_argument("model_output", help="Path to save the trained model")
-    args = parser.parse_args()
-    main(args.train_file, args.model_output)
+	train_data = 'data/train.jsonl'
+    model_output = "distilbert_model"
+    main(train_data, model_output)
 

@@ -35,6 +35,7 @@ def evaluate_model(model, X_eval, y_eval):
 	plt.xlabel('Predicted labels')
 	plt.ylabel('True labels')
 	plt.title('Confusion Matrix')
+	plt.savefig('conf_mat.png')
 	plt.show()
 
 
@@ -44,6 +45,11 @@ def main():
 	X_eval, y_eval = preprocess_data(eval_data)
 
 	model = joblib.load('model.pkl')
+	
+	for data, label in zip(X_eval, y_eval):
+		print("Data:", data)
+		print("Label:", label)
+		print()
 
 	print("Evaluating model...")
 	evaluate_model(model, X_eval, y_eval)

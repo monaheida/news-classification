@@ -33,6 +33,11 @@ def main():
 	train_data = load_data('data/train.jsonl')
 
 	X_train, y_train = preprocess_data(train_data)
+	
+	for data, label in zip(X_train, y_train):
+		print("Data:", data)
+		print("Label:", label)
+		print()
 
 	print("Training model...")
 

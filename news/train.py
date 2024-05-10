@@ -7,7 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 
 # Constants
 MODEL_NAME = "distilbert-base-uncased"
-NUM_EPOCHS = 40
+NUM_EPOCHS = 20
 BATCH_SIZE = 80
 MAX_SEQ_LENGTH = 256
 LEARN_RATE = 5e-5

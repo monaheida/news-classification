@@ -8,10 +8,10 @@ class CustomDataset(Dataset):
         self.data = data
         self.tokenizer = tokenizer
         self.max_length = max_length
-    
+
     def __len__(self):
         return len(self.data)
-    
+
     def __getitem__(self, idx):
         text = self.data[idx]['headline'] + ' ' + self.data[idx]['short_description']
         encoding = self.tokenizer.encode_plus(
@@ -44,28 +44,25 @@ def classify(model, classify_loader, device):
 def main(model_file, data_file):
     with open(data_file, 'r', encoding='utf-8') as file:
         data = [json.loads(line) for line in file]
-    
+
     tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
-    
+
     model = DistilBertForSequenceClassification.from_pretrained(model_file)
-    
+
     classify_dataset = CustomDataset(data, tokenizer, max_length=128)
     classify_loader = DataLoader(classify_dataset, batch_size=16, shuffle=False)
-    
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
-    
+
     preds = classify(model, classify_loader, device)
-    
+
     for i, article in enumerate(data):
-        article['category'] = preds[i]
+        article['category'] = int(preds[i])  # Convert NumPy int64 to Python int
         print(json.dumps(article))
 
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description="Classify text data using a trained model")
-    parser.add_argument("model_file", help="Path to the trained model directory")
-    parser.add_argument("data_file", help="Path to the data file to classify")
-    args = parser.parse_args()
-    main(args.model_file, args.data_file)
+    model_file = input("Enter path to the trained model directory: ")
+    data_file = input("Enter path to the data file to classify: ")
+    main(model_file, data_file)
 

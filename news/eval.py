@@ -1,53 +1,36 @@
-import torch
-from torch.utils.data import DataLoader
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 import json
+import torch
+from torch.utils.data import Dataset, DataLoader
 from transformers import DistilBertTokenizer, DistilBertForSequenceClassification
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
+MAX_SEQ_LENGTH = 128
+BATCH_SIZE = 16
 
-class CustomDataset(torch.utils.data.Dataset):
-    def __init__(self, data, tokenizer, max_length):
+class CustomDataset(Dataset):
+    def __init__(self, data, tokenizer, max_length, label_map):
         self.data = data
         self.tokenizer = tokenizer
         self.max_length = max_length
-        self.label_map = {
-            "politics": 0,
-            "healthyliving": 1,
-            "travel": 2,
-            "entertainment": 3,
-            "stylebeauty": 4,
-            "sports": 5,
-            "arts": 6,
-            "queervoices": 7,
-            "business": 8,
-            "media": 9,
-            "latinovoices": 10,
-            "worldnews": 11,
-            "usnews": 12,
-            "parents": 13,
-            "parenting": 14,
-            "blackvoices": 15,
-            "wellness": 16,
-            "taste": 17,
-            "divorce": 18,
-            "fallback_label": -1
-        }
+        self.label_map = label_map
 
     def __len__(self):
         return len(self.data)
 
-    def __getitem__(self, index):
-        headline = self.data[index]['headline']
-        category = self.data[index]['category'].strip().lower().replace(" ", "_")
-        category = ''.join(e for e in category if e.isalnum())
+    def __getitem__(self, idx):
+        text = str(self.data[idx]['headline']) + ' ' + str(self.data[idx]['short_description'])
+        label = self.label_map[self.data[idx]['category']]
 
-        try:
-            label = self.label_map[category]
-        except KeyError:
-            label = self.label_map["fallback_label"]
-
-        encoding = self.tokenizer(headline, truncation=True, padding='max_length', max_length=self.max_length,
-                                  return_tensors='pt')
+        encoding = self.tokenizer.encode_plus(
+            text,
+            add_special_tokens=True,
+            max_length=self.max_length,
+            return_token_type_ids=False,
+            padding='max_length',
+            truncation=True,
+            return_attention_mask=True,
+            return_tensors='pt'
+        )
 
         return {
             'input_ids': encoding['input_ids'].flatten(),
@@ -55,6 +38,17 @@ class CustomDataset(torch.utils.data.Dataset):
             'labels': torch.tensor(label, dtype=torch.long)
         }
 
+def create_label_map(data):
+    unique_labels = sorted(set(sample['category'] for sample in data))
+    label_map = {label: idx for idx, label in enumerate(unique_labels)}
+    return label_map
+
+def load_jsonl(file_path):
+    data = []
+    with open(file_path, 'r', encoding='utf-8') as file:
+        for line in file:
+            data.append(json.loads(line))
+    return data
 
 def evaluate(model, eval_loader, device):
     model.eval()
@@ -71,20 +65,22 @@ def evaluate(model, eval_loader, device):
             all_preds.extend(preds.cpu().numpy())
     return all_labels, all_preds
 
-
-def main(model_file, eval_file):
-    with open(eval_file, 'r', encoding='utf-8') as file:
-        eval_data = [json.loads(line) for line in file]
+def main(eval_file):
+    eval_data = load_jsonl(eval_file)
 
     tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
 
-    model = DistilBertForSequenceClassification.from_pretrained(model_file)
+    label_map_eval = create_label_map(eval_data)
 
-    eval_dataset = CustomDataset(eval_data, tokenizer, max_length=128)
-    eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False)
+    eval_dataset = CustomDataset(eval_data, tokenizer, max_length=MAX_SEQ_LENGTH, label_map=label_map_eval)
+    eval_loader = DataLoader(eval_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', num_labels=len(label_map_eval))
     model.to(device)
+
+    model.load_state_dict(torch.load('distilbert_news_classifier.pth'))
+    model.eval()
 
     true_labels, pred_labels = evaluate(model, eval_loader, device)
     accuracy = accuracy_score(true_labels, pred_labels)
@@ -95,14 +91,6 @@ def main(model_file, eval_file):
     print("Confusion Matrix:\n", confusion)
     print("Classification Report:\n", report)
 
-
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Evaluate a DistilBERT model on a dataset.")
-    parser.add_argument("--model", type=str, help="Path to the trained model directory")
-    parser.add_argument("--eval_data", type=str, help="Path to the evaluation data file")
-    args = parser.parse_args()
-
-    main(args.model, args.eval_data)
+    main("data/dev.jsonl")
 
